@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -84,14 +83,13 @@ func main() {
 		log.Fatalf("Can't determine hostname")
 	}
 
-	// Poll the system every 30 seconds for updated metrics
+	// Poll the system every 60 seconds for updated metrics
 	for {
-		log.Println("Gathering metrics...")
 		var jsonStr = []byte(fmt.Sprintf(`
       {
         "agent": {
           "host": "%s",
-          "version": "0.1"
+          "version": "0.2"
         },
         "components": [
           {
@@ -109,8 +107,6 @@ func main() {
       }
 		`, hostname, hostname, getCPU(), getFullestDisk(), getMem(), getSwap()))
 
-		log.Print(string(jsonStr))
-
 		req, err := http.NewRequest("POST", "https://platform-api.newrelic.com/platform/v1/metrics", bytes.NewBuffer(jsonStr))
 		req.Header.Set("X-License-Key", token)
 		req.Header.Set("Content-Type", "application/json")
@@ -123,10 +119,11 @@ func main() {
 		}
 		defer resp.Body.Close()
 
-		log.Println("response Status:", resp.Status)
-		log.Println("response Headers:", resp.Header)
-		body, _ := ioutil.ReadAll(resp.Body)
-		log.Println("response Body:", string(body))
+		l := string(jsonStr)
+		l = strings.Replace(l, "\n", " ", -1)
+		l = strings.Replace(l, " ", "", -1)
+		l = strings.TrimSpace(l)
+		log.Println("Sent: " + l + " and received: " + resp.Status)
 		time.Sleep(60 * time.Second)
 	}
 }
