@@ -12,13 +12,15 @@ import (
 	"time"
 )
 
+const Version = "v0.2"
+
 func getNewRelicToken() string {
 	var cmd *exec.Cmd
 	f := "/etc/newrelic/nrsysmond.cfg"
 	if _, err := os.Stat(f); os.IsNotExist(err) {
 		log.Fatalf("File does not exist: %s", f)
 	}
-	cmd = exec.Command("bash", "-c", "grep license_key= /etc/newrelic/nrsysmond.cfg | cut -d '=' -f2")
+	cmd = exec.Command("bash", "-c", fmt.Sprintf("grep license_key= %s | cut -d '=' -f2", f))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Fatalf("Missing a valid New Relic license key: %s", err)
@@ -76,6 +78,7 @@ func getSwap() int {
 }
 
 func main() {
+	log.SetPrefix(fmt.Sprintf("newrelic-monitor %s ", Version))
 	token := getNewRelicToken()
 
 	hostname, err := os.Hostname()
@@ -89,7 +92,7 @@ func main() {
       {
         "agent": {
           "host": "%s",
-          "version": "0.2"
+          "version": "%s"
         },
         "components": [
           {
@@ -105,7 +108,7 @@ func main() {
           }
         ]
       }
-		`, hostname, hostname, getCPU(), getFullestDisk(), getMem(), getSwap()))
+		`, hostname, Version, hostname, getCPU(), getFullestDisk(), getMem(), getSwap()))
 
 		req, err := http.NewRequest("POST", "https://platform-api.newrelic.com/platform/v1/metrics", bytes.NewBuffer(jsonStr))
 		req.Header.Set("X-License-Key", token)
