@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const Version = "v0.2"
+const Version = "v0.3"
 
 func getNewRelicToken() string {
 	var cmd *exec.Cmd
@@ -111,6 +111,10 @@ func main() {
 		`, hostname, Version, hostname, getCPU(), getFullestDisk(), getMem(), getSwap()))
 
 		req, err := http.NewRequest("POST", "https://platform-api.newrelic.com/platform/v1/metrics", bytes.NewBuffer(jsonStr))
+		if err != nil {
+			log.Printf("Error: %s", err)
+		}
+
 		req.Header.Set("X-License-Key", token)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
@@ -118,15 +122,15 @@ func main() {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			panic(err)
+			log.Printf("Error: %s", err)
+		} else {
+			defer resp.Body.Close()
+			l := string(jsonStr)
+			l = strings.Replace(l, "\n", " ", -1)
+			l = strings.Replace(l, " ", "", -1)
+			l = strings.TrimSpace(l)
+			log.Println("Sent: " + l + " and received: " + resp.Status)
 		}
-		defer resp.Body.Close()
-
-		l := string(jsonStr)
-		l = strings.Replace(l, "\n", " ", -1)
-		l = strings.Replace(l, " ", "", -1)
-		l = strings.TrimSpace(l)
-		log.Println("Sent: " + l + " and received: " + resp.Status)
 		time.Sleep(60 * time.Second)
 	}
 }
