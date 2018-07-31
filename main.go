@@ -12,21 +12,14 @@ import (
 	"time"
 )
 
-const Version = "v0.3"
+const Version = "v0.4"
 
 func getNewRelicToken() string {
-	var cmd *exec.Cmd
-	f := "/etc/newrelic/nrsysmond.cfg"
-	if _, err := os.Stat(f); os.IsNotExist(err) {
-		log.Fatalf("File does not exist: %s", f)
+	t := strings.TrimSpace(os.Getenv("NEWRELIC_TOKEN"))
+	if t == "" {
+		log.Fatalf("Error: NEWRELIC_TOKEN is not set")
 	}
-	cmd = exec.Command("bash", "-c", fmt.Sprintf("grep license_key= %s | cut -d '=' -f2", f))
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Fatalf("Missing a valid New Relic license key: %s", err)
-	}
-	// log.Print(string(output)) need to notice errors - stdout and stderr are mixed
-	return strings.TrimSpace(string(output))
+	return t
 }
 
 func getFullestDisk() int {

@@ -4,8 +4,8 @@ newrelic-monitor
 New Relic recently retired the Servers component of their monitoring product.
 Presumably to encourage adoption of their Infrastructure section.
 
-This small binary can be executed and will parse a `/etc/newrelic/nrsysmond.cfg`
-file for a New Relic `license_key` field.
+This small binary can be executed and requires the environment variable
+NEWRELIC\_TOKEN to be set.
 
 It will check system metrics like CPU, Disk, Memory and Swap and report them
 back to New Relic once per minute.
