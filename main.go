@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +14,82 @@ import (
 )
 
 const Version = "v0.4"
+
+type EC2Instance struct {
+	Name                 string
+	MaximumCredits       float64
+	CreditsEarnedPerHour int
+}
+
+func getInstanceId() (string, error) {
+	rep, err := http.Get("http://instance-data/latest/meta-data/instance-id")
+	if err != nil {
+		return "", err
+	}
+
+	defer rep.Body.Close()
+	body, err := ioutil.ReadAll(rep.Body)
+	if err != nil {
+		return "", err
+	}
+
+	instanceId := string(body)
+	return instanceId, nil
+}
+
+func getInstanceDetails() (EC2Instance, error) {
+
+	var instance EC2Instance
+
+	instanceDetails := map[string]EC2Instance{
+		"t2.nano": EC2Instance{
+			Name:                 "t2.nano",
+			MaximumCredits:       72,
+			CreditsEarnedPerHour: 3,
+		},
+		"t2.micro": EC2Instance{
+			Name:                 "t2.micro",
+			MaximumCredits:       144,
+			CreditsEarnedPerHour: 6,
+		},
+		"t2.small": EC2Instance{
+			Name:                 "t2.small",
+			MaximumCredits:       288,
+			CreditsEarnedPerHour: 12,
+		},
+		"t2.medium": EC2Instance{
+			Name:                 "t2.small",
+			MaximumCredits:       576,
+			CreditsEarnedPerHour: 24,
+		},
+		"t3.nano": EC2Instance{
+			Name:                 "t3.nano",
+			MaximumCredits:       144,
+			CreditsEarnedPerHour: 6,
+		},
+		"t3.micro": EC2Instance{
+			Name:                 "t3.micro",
+			MaximumCredits:       288,
+			CreditsEarnedPerHour: 12,
+		},
+	}
+
+	rep, err := http.Get("http://instance-data/latest/meta-data/instance-type")
+	if err != nil {
+		return instance, err
+	}
+
+	defer rep.Body.Close()
+	body, err := ioutil.ReadAll(rep.Body)
+	if err != nil {
+		return instance, err
+	}
+
+	instanceName := string(body)
+	instance = instanceDetails[instanceName]
+
+	return instance, nil
+}
 
 func getNewRelicToken() string {
 	t := strings.TrimSpace(os.Getenv("NEWRELIC_TOKEN"))
@@ -70,6 +147,39 @@ func getSwap() int {
 	return int(v)
 }
 
+func getCredit() int {
+
+	instanceId, err := getInstanceId()
+
+	if err != nil {
+		return 0
+	}
+
+	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region ap-southeast-2 --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '10 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
+
+	var cmd *exec.Cmd
+	cmd = exec.Command("bash", "-c", commandStr)
+	output, err := cmd.CombinedOutput()
+	log.Printf("output %v", string(output))
+	if err != nil {
+		return 0
+	}
+
+	v, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64)
+	log.Printf("output %v", v)
+	if err != nil {
+		return 0
+	}
+
+	instance, err := getInstanceDetails()
+	if err != nil {
+		return 0
+	}
+	percentageUsage := (v / instance.MaximumCredits) * 100
+
+	return int(percentageUsage)
+}
+
 func main() {
 	log.SetPrefix(fmt.Sprintf("newrelic-monitor %s ", Version))
 	token := getNewRelicToken()
@@ -96,12 +206,13 @@ func main() {
               "Component/CPU[percent]": %d,
               "Component/Disk[percent]": %d,
               "Component/Memory[percent]": %d,
-              "Component/Swap[percent]": %d
+			  "Component/Swap[percent]": %d,
+			  "Component/CPUCredit[percent]": %d
             }
           }
         ]
       }
-		`, hostname, Version, hostname, getCPU(), getFullestDisk(), getMem(), getSwap()))
+		`, hostname, Version, hostname, getCPU(), getFullestDisk(), getMem(), getSwap(), getCredit()))
 
 		req, err := http.NewRequest("POST", "https://platform-api.newrelic.com/platform/v1/metrics", bytes.NewBuffer(jsonStr))
 		if err != nil {
