@@ -15,7 +15,7 @@ import (
 
 const Version = "v0.4"
 
-type EC2Instance struct {
+type EC2InstanceType struct {
 	Name                 string
 	MaximumCredits       float64
 	CreditsEarnedPerHour int
@@ -37,37 +37,37 @@ func getInstanceId() (string, error) {
 	return instanceId, nil
 }
 
-func getInstanceDetails() (EC2Instance, error) {
+func getInstanceDetails() (EC2InstanceType, error) {
 
-	var instance EC2Instance
+	var instance EC2InstanceType
 
-	instanceDetails := map[string]EC2Instance{
-		"t2.nano": EC2Instance{
+	instanceDetails := map[string]EC2InstanceType{
+		"t2.nano": EC2InstanceType{
 			Name:                 "t2.nano",
 			MaximumCredits:       72,
 			CreditsEarnedPerHour: 3,
 		},
-		"t2.micro": EC2Instance{
+		"t2.micro": EC2InstanceType{
 			Name:                 "t2.micro",
 			MaximumCredits:       144,
 			CreditsEarnedPerHour: 6,
 		},
-		"t2.small": EC2Instance{
+		"t2.small": EC2InstanceType{
 			Name:                 "t2.small",
 			MaximumCredits:       288,
 			CreditsEarnedPerHour: 12,
 		},
-		"t2.medium": EC2Instance{
+		"t2.medium": EC2InstanceType{
 			Name:                 "t2.small",
 			MaximumCredits:       576,
 			CreditsEarnedPerHour: 24,
 		},
-		"t3.nano": EC2Instance{
+		"t3.nano": EC2InstanceType{
 			Name:                 "t3.nano",
 			MaximumCredits:       144,
 			CreditsEarnedPerHour: 6,
 		},
-		"t3.micro": EC2Instance{
+		"t3.micro": EC2InstanceType{
 			Name:                 "t3.micro",
 			MaximumCredits:       288,
 			CreditsEarnedPerHour: 12,
