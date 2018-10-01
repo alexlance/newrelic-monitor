@@ -160,13 +160,11 @@ func getCredit() int {
 	var cmd *exec.Cmd
 	cmd = exec.Command("bash", "-c", commandStr)
 	output, err := cmd.CombinedOutput()
-	log.Printf("output %v", string(output))
 	if err != nil {
 		return 0
 	}
 
 	v, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64)
-	log.Printf("output %v", v)
 	if err != nil {
 		return 0
 	}
