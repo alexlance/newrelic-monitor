@@ -16,7 +16,6 @@ import (
 const Version = "v0.5"
 
 type EC2InstanceType struct {
-	Name                 string
 	MaximumCredits       float64
 	CreditsEarnedPerHour float64
 }
