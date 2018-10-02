@@ -13,12 +13,12 @@ import (
 	"time"
 )
 
-const Version = "v0.4"
+const Version = "v0.5"
 
 type EC2InstanceType struct {
 	Name                 string
 	MaximumCredits       float64
-	CreditsEarnedPerHour int
+	CreditsEarnedPerHour float64
 }
 
 func getInstanceId() (string, error) {
@@ -33,44 +33,68 @@ func getInstanceId() (string, error) {
 		return "", err
 	}
 
-	instanceId := string(body)
-	return instanceId, nil
+	return string(body), nil
 }
 
 func getInstanceDetails() (EC2InstanceType, error) {
-
 	var instance EC2InstanceType
 
 	instanceDetails := map[string]EC2InstanceType{
 		"t2.nano": EC2InstanceType{
-			Name:                 "t2.nano",
 			MaximumCredits:       72,
 			CreditsEarnedPerHour: 3,
 		},
 		"t2.micro": EC2InstanceType{
-			Name:                 "t2.micro",
 			MaximumCredits:       144,
 			CreditsEarnedPerHour: 6,
 		},
 		"t2.small": EC2InstanceType{
-			Name:                 "t2.small",
 			MaximumCredits:       288,
 			CreditsEarnedPerHour: 12,
 		},
 		"t2.medium": EC2InstanceType{
-			Name:                 "t2.small",
 			MaximumCredits:       576,
 			CreditsEarnedPerHour: 24,
 		},
+		"t2.large": EC2InstanceType{
+			MaximumCredits:       864,
+			CreditsEarnedPerHour: 36,
+		},
+		"t2.xlarge": EC2InstanceType{
+			MaximumCredits:       1296,
+			CreditsEarnedPerHour: 54,
+		},
+		"t2.2xlarge": EC2InstanceType{
+			MaximumCredits:       1958.4,
+			CreditsEarnedPerHour: 81.6,
+		},
 		"t3.nano": EC2InstanceType{
-			Name:                 "t3.nano",
 			MaximumCredits:       144,
 			CreditsEarnedPerHour: 6,
 		},
 		"t3.micro": EC2InstanceType{
-			Name:                 "t3.micro",
 			MaximumCredits:       288,
 			CreditsEarnedPerHour: 12,
+		},
+		"t3.small": EC2InstanceType{
+			MaximumCredits:       576,
+			CreditsEarnedPerHour: 24,
+		},
+		"t3.medium": EC2InstanceType{
+			MaximumCredits:       576,
+			CreditsEarnedPerHour: 24,
+		},
+		"t3.large": EC2InstanceType{
+			MaximumCredits:       864,
+			CreditsEarnedPerHour: 36,
+		},
+		"t3.xlarge": EC2InstanceType{
+			MaximumCredits:       2304,
+			CreditsEarnedPerHour: 96,
+		},
+		"t3.2xlarge": EC2InstanceType{
+			MaximumCredits:       4608,
+			CreditsEarnedPerHour: 192,
 		},
 	}
 
@@ -85,10 +109,7 @@ func getInstanceDetails() (EC2InstanceType, error) {
 		return instance, err
 	}
 
-	instanceName := string(body)
-	instance = instanceDetails[instanceName]
-
-	return instance, nil
+	return instanceDetails[string(body)], nil
 }
 
 func getNewRelicToken() string {
@@ -147,15 +168,15 @@ func getSwap() int {
 	return int(v)
 }
 
+//getCredit returns remaining CPU credits in percentage
 func getCredit() int {
-
 	instanceId, err := getInstanceId()
 
 	if err != nil {
 		return 0
 	}
 
-	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region ap-southeast-2 --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '10 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
+	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region ap-southeast-2 --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '5 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
 
 	var cmd *exec.Cmd
 	cmd = exec.Command("bash", "-c", commandStr)
@@ -173,9 +194,8 @@ func getCredit() int {
 	if err != nil {
 		return 0
 	}
-	percentageUsage := (v / instance.MaximumCredits) * 100
 
-	return int(percentageUsage)
+	return int((v / instance.MaximumCredits) * 100)
 }
 
 func main() {
@@ -204,8 +224,8 @@ func main() {
               "Component/CPU[percent]": %d,
               "Component/Disk[percent]": %d,
               "Component/Memory[percent]": %d,
-			  "Component/Swap[percent]": %d,
-			  "Component/CPUCredit[percent]": %d
+              "Component/Swap[percent]": %d,
+              "Component/Credit[percent]": %d
             }
           }
         ]
