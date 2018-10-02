@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -12,7 +13,103 @@ import (
 	"time"
 )
 
-const Version = "v0.4"
+const Version = "v0.5"
+
+type EC2InstanceType struct {
+	MaximumCredits       float64
+	CreditsEarnedPerHour float64
+}
+
+func getInstanceId() (string, error) {
+	rep, err := http.Get("http://instance-data/latest/meta-data/instance-id")
+	if err != nil {
+		return "", err
+	}
+
+	defer rep.Body.Close()
+	body, err := ioutil.ReadAll(rep.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
+
+func getInstanceDetails() (EC2InstanceType, error) {
+	var instance EC2InstanceType
+
+	instanceDetails := map[string]EC2InstanceType{
+		"t2.nano": EC2InstanceType{
+			MaximumCredits:       72,
+			CreditsEarnedPerHour: 3,
+		},
+		"t2.micro": EC2InstanceType{
+			MaximumCredits:       144,
+			CreditsEarnedPerHour: 6,
+		},
+		"t2.small": EC2InstanceType{
+			MaximumCredits:       288,
+			CreditsEarnedPerHour: 12,
+		},
+		"t2.medium": EC2InstanceType{
+			MaximumCredits:       576,
+			CreditsEarnedPerHour: 24,
+		},
+		"t2.large": EC2InstanceType{
+			MaximumCredits:       864,
+			CreditsEarnedPerHour: 36,
+		},
+		"t2.xlarge": EC2InstanceType{
+			MaximumCredits:       1296,
+			CreditsEarnedPerHour: 54,
+		},
+		"t2.2xlarge": EC2InstanceType{
+			MaximumCredits:       1958.4,
+			CreditsEarnedPerHour: 81.6,
+		},
+		"t3.nano": EC2InstanceType{
+			MaximumCredits:       144,
+			CreditsEarnedPerHour: 6,
+		},
+		"t3.micro": EC2InstanceType{
+			MaximumCredits:       288,
+			CreditsEarnedPerHour: 12,
+		},
+		"t3.small": EC2InstanceType{
+			MaximumCredits:       576,
+			CreditsEarnedPerHour: 24,
+		},
+		"t3.medium": EC2InstanceType{
+			MaximumCredits:       576,
+			CreditsEarnedPerHour: 24,
+		},
+		"t3.large": EC2InstanceType{
+			MaximumCredits:       864,
+			CreditsEarnedPerHour: 36,
+		},
+		"t3.xlarge": EC2InstanceType{
+			MaximumCredits:       2304,
+			CreditsEarnedPerHour: 96,
+		},
+		"t3.2xlarge": EC2InstanceType{
+			MaximumCredits:       4608,
+			CreditsEarnedPerHour: 192,
+		},
+	}
+
+	rep, err := http.Get("http://instance-data/latest/meta-data/instance-type")
+	if err != nil {
+		return instance, err
+	}
+
+	defer rep.Body.Close()
+	body, err := ioutil.ReadAll(rep.Body)
+	if err != nil {
+		return instance, err
+	}
+
+	return instanceDetails[string(body)], nil
+}
 
 func getNewRelicToken() string {
 	t := strings.TrimSpace(os.Getenv("NEWRELIC_TOKEN"))
@@ -70,6 +167,36 @@ func getSwap() int {
 	return int(v)
 }
 
+//getCredit returns remaining CPU credits in percentage
+func getCredit() int {
+	instanceId, err := getInstanceId()
+
+	if err != nil {
+		return 0
+	}
+
+	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region ap-southeast-2 --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '5 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
+
+	var cmd *exec.Cmd
+	cmd = exec.Command("bash", "-c", commandStr)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0
+	}
+
+	v, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64)
+	if err != nil {
+		return 0
+	}
+
+	instance, err := getInstanceDetails()
+	if err != nil {
+		return 0
+	}
+
+	return int((v / instance.MaximumCredits) * 100)
+}
+
 func main() {
 	log.SetPrefix(fmt.Sprintf("newrelic-monitor %s ", Version))
 	token := getNewRelicToken()
@@ -96,12 +223,13 @@ func main() {
               "Component/CPU[percent]": %d,
               "Component/Disk[percent]": %d,
               "Component/Memory[percent]": %d,
-              "Component/Swap[percent]": %d
+              "Component/Swap[percent]": %d,
+              "Component/Credit[percent]": %d
             }
           }
         ]
       }
-		`, hostname, Version, hostname, getCPU(), getFullestDisk(), getMem(), getSwap()))
+		`, hostname, Version, hostname, getCPU(), getFullestDisk(), getMem(), getSwap(), getCredit()))
 
 		req, err := http.NewRequest("POST", "https://platform-api.newrelic.com/platform/v1/metrics", bytes.NewBuffer(jsonStr))
 		if err != nil {
