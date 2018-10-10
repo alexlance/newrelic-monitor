@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const Version = "v0.6"
+const Version = "v0.7"
 
 type EC2InstanceType struct {
 	MaximumCredits       float64
@@ -185,7 +185,7 @@ func getCredit() int {
 		return 0
 	}
 
-	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region " + getRegion() + " --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '5 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
+	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region " + getRegion() + " --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '10 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
 
 	var cmd *exec.Cmd
 	cmd = exec.Command("bash", "-c", commandStr)
