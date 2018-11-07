@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const Version = "v0.6"
+const Version = "v0.8"
 
 type EC2InstanceType struct {
 	MaximumCredits       float64
