@@ -10,10 +10,9 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 )
 
-const Version = "v0.7"
+const Version = "v0.8"
 
 type EC2InstanceType struct {
 	MaximumCredits       float64
@@ -217,8 +216,7 @@ func main() {
 	}
 
 	// Poll the system every 60 seconds for updated metrics
-	for {
-		var jsonStr = []byte(fmt.Sprintf(`
+	var jsonStr = []byte(fmt.Sprintf(`
       {
         "agent": {
           "host": "%s",
@@ -241,27 +239,25 @@ func main() {
       }
 		`, hostname, Version, hostname, getCPU(), getFullestDisk(), getMem(), getSwap(), getCredit()))
 
-		req, err := http.NewRequest("POST", "https://platform-api.newrelic.com/platform/v1/metrics", bytes.NewBuffer(jsonStr))
-		if err != nil {
-			log.Printf("Error: %s", err)
-		}
+	req, err := http.NewRequest("POST", "https://platform-api.newrelic.com/platform/v1/metrics", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		log.Printf("Error: %s", err)
+	}
 
-		req.Header.Set("X-License-Key", token)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-License-Key", token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("Error: %s", err)
-		} else {
-			defer resp.Body.Close()
-			l := string(jsonStr)
-			l = strings.Replace(l, "\n", " ", -1)
-			l = strings.Replace(l, " ", "", -1)
-			l = strings.TrimSpace(l)
-			log.Println("Sent: " + l + " and received: " + resp.Status)
-		}
-		time.Sleep(60 * time.Second)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error: %s", err)
+	} else {
+		defer resp.Body.Close()
+		l := string(jsonStr)
+		l = strings.Replace(l, "\n", " ", -1)
+		l = strings.Replace(l, " ", "", -1)
+		l = strings.TrimSpace(l)
+		log.Println("Sent: " + l + " and received: " + resp.Status)
 	}
 }
