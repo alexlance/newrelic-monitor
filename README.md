@@ -17,3 +17,4 @@ and adding charts or alerts etc for the following components:
     Component/Disk[percent]
     Component/Memory[percent]
     Component/Swap[percent]
+    Component/Credit[percent]

@@ -34,6 +34,17 @@ func getInstanceId() (string, error) {
 	return string(body), nil
 }
 
+func getRegion() string {
+	var cmd *exec.Cmd
+	cmd = exec.Command("bash", "-c", "curl -s http://instance-data/latest/dynamic/instance-identity/document | jq -r '.region'")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "ap-southeast-2"
+	}
+	v := strings.TrimSpace(string(output))
+	return v
+}
+
 func getInstanceDetails() (EC2InstanceType, error) {
 	var instance EC2InstanceType
 
@@ -169,12 +180,11 @@ func getSwap() int {
 //getCredit returns remaining CPU credits in percentage
 func getCredit() int {
 	instanceId, err := getInstanceId()
-
 	if err != nil {
 		return 0
 	}
 
-	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region ap-southeast-2 --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '5 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
+	commandStr := "aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUCreditBalance --region " + getRegion() + " --dimensions Name=InstanceId,Value=" + instanceId + " --start-time $(date -d '10 minute ago' +%s) --end-time=$(date +%s) --period 3600 --statistics Minimum --unit Count | jq '.Datapoints[0].Minimum'"
 
 	var cmd *exec.Cmd
 	cmd = exec.Command("bash", "-c", commandStr)
